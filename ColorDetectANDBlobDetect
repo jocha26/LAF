@@ -1,0 +1,99 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Jan 22 16:03:31 2025
+
+@author: josep
+"""
+
+import cv2
+import numpy as np
+
+def color_detection(frame, lower_bounds, upper_bounds):
+    """
+    Detect specific colors in a frame based on HSV values.
+    :param frame: Input frame from the video
+    :param lower_bounds: List of lower HSV bounds for the colors
+    :param upper_bounds: List of upper HSV bounds for the colors
+    :return: Mask and the frame with detected colors highlighted
+    """
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    mask = None
+
+    # Combine masks for each color range
+    for lower_bound, upper_bound in zip(lower_bounds, upper_bounds):
+        if mask is None:
+            mask = cv2.inRange(hsv, lower_bound, upper_bound)
+        else:
+            mask = cv2.bitwise_or(mask, cv2.inRange(hsv, lower_bound, upper_bound))
+
+    result = cv2.bitwise_and(frame, frame, mask=mask)
+    return mask, result
+
+def blob_detection(frame, mask):
+    """
+    Detect blobs in the masked frame.
+    :param frame: Original frame from the video
+    :param mask: Mask highlighting areas of interest
+    :return: Frame with blobs drawn
+    """
+    # Set up the blob detector
+    params = cv2.SimpleBlobDetector_Params()
+    params.filterByArea = True
+    params.minArea = 100
+    params.maxArea = 5000
+    params.filterByCircularity = False
+    params.filterByConvexity = False
+    params.filterByInertia = False
+    detector = cv2.SimpleBlobDetector_create(params)
+
+    # Detect blobs
+    keypoints = detector.detect(mask)
+    
+    # Draw detected blobs on the frame
+    frame_with_blobs = cv2.drawKeypoints(frame, keypoints, None, (0, 0, 255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+    return frame_with_blobs
+
+def main(video_path):
+    # Open the video file
+    cap = cv2.VideoCapture("C:\\Users\\josep\\Desktop\\ImageProcessing\\TestVid.mp4")
+    if not cap.isOpened():
+        print("Error: Unable to open video file.")
+        return
+    
+    # Define color bounds for blue and white
+    # Blue color range
+    lower_blue = np.array([75, 100, 50])  # Lower HSV bound for blue
+    upper_blue = np.array([150, 255, 255])  # Upper HSV bound for blue
+
+    # White color range
+    lower_white = np.array([0, 0, 180])  # Lower HSV bound for white
+    upper_white = np.array([180, 50, 255])  # Upper HSV bound for white
+
+    lower_bounds = [lower_blue, lower_white]
+    upper_bounds = [upper_blue, upper_white]
+
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+        
+        # Color detection
+        mask, color_detected_frame = color_detection(frame, lower_bounds, upper_bounds)
+        
+        # Blob detection
+        frame_with_blobs = blob_detection(frame, mask)
+
+        # Display the results
+        cv2.imshow('Original Frame', frame)
+        cv2.imshow('Color Detected', color_detected_frame)
+        cv2.imshow('Blobs Detected', frame_with_blobs)
+
+        # Break the loop if 'q' is pressed
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+    
+    cap.release()
+    cv2.destroyAllWindows()
+
+# Replace 'your_video.mp4' with the path to your MP4 file
+main ("C:\\Users\\josep\\Desktop\\ImageProcessing\\TestVid.mp4")
